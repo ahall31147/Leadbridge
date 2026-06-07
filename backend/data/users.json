@@ -1,0 +1,19 @@
+{
+  "users": [
+    {
+      "id": "1",
+      "email": "admin@leadbridge.com",
+      "password": "$2b$10$xMZWllXdWfQ9vt8zQ7cr6ODD2xbYN3aXxC9.ENDYyZWI6cBV0jF0O",
+      "role": "admin",
+      "name": "Admin User"
+    },
+    {
+      "id": "2",
+      "email": "sub@example.com",
+      "password": "$2b$10$265dCMfd14aHHq5/Hp8zZeHq5vVYRrieTqy/LiMsSWSc18z0Iyzrq",
+      "role": "subscriber",
+      "name": "Test Subscriber",
+      "tier": "Pro"
+    }
+  ]
+}
