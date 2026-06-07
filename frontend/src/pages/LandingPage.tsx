@@ -1,5 +1,7 @@
 import { Check } from 'lucide-react';
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const tiers = [
   {
@@ -7,32 +9,46 @@ const tiers = [
     price: '$499',
     leads: '10 leads/mo',
     features: ['Pre-qualified buyer/renter leads', 'Dedicated agent support', 'Lead tracking dashboard', 'Email delivery'],
-    priceId: 'price_starter'
+    tier: 'Starter'
   },
   {
     name: 'Pro',
     price: '$1,299',
     leads: '30 leads/mo',
     features: ['Everything in Starter', 'Priority lead delivery', 'Custom qualification criteria', 'SMS notifications'],
-    priceId: 'price_pro'
+    tier: 'Pro'
   },
   {
     name: 'Enterprise',
     price: 'Custom',
     leads: 'Unlimited',
     features: ['Bulk lead volume', 'Full white-label support', 'API access', 'Dedicated account manager'],
-    priceId: 'price_enterprise'
+    tier: 'Enterprise'
   }
 ];
 
 const LandingPage = () => {
-  const handleSubscribe = async (priceId: string) => {
+  const { token, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSubscribe = async (tier: string) => {
+    if (!isAuthenticated) {
+      navigate('/signup');
+      return;
+    }
+
     try {
-      const response = await axios.post('http://localhost:3001/api/create-checkout-session', { priceId });
-      alert(response.data.message + '\nRedirecting to: ' + response.data.url);
+      const response = await axios.post('http://localhost:3001/api/create-checkout-session', 
+        { tier },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (response.data.url) {
+        window.location.href = response.data.url;
+      }
     } catch (error) {
       console.error('Subscription error', error);
-      alert('Error creating checkout session. Make sure the backend is running.');
+      alert('Error creating checkout session. Make sure the backend is running and you are logged in.');
     }
   };
 
@@ -84,7 +100,7 @@ const LandingPage = () => {
                   </ul>
                 </div>
                 <button
-                  onClick={() => handleSubscribe(tier.priceId)}
+                  onClick={() => handleSubscribe(tier.tier)}
                   className="mt-8 block rounded-md bg-blue-600 px-3 py-2 text-center text-sm font-semibold leading-6 text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
                 >
                   Subscribe
