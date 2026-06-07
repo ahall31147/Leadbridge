@@ -2,3 +2,5 @@ node_modules
 dist
 .env
 venv
+backend/data/*.json
+pipeline/ingested-leads.json
