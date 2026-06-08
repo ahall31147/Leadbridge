@@ -17,7 +17,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     const fetchSubscribers = async () => {
       try {
-        const response = await axios.get('http://localhost:3001/api/admin/subscribers', {
+        const response = await axios.get('/api/admin/subscribers', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setSubscribers(response.data);
@@ -33,7 +33,7 @@ const AdminDashboard = () => {
 
   const handleTierChange = async (userId: string, newTier: string) => {
     try {
-        await axios.patch(`http://localhost:3001/api/admin/subscribers/${userId}/tier`, { tier: newTier }, {
+        await axios.patch(`/api/admin/subscribers/${userId}/tier`, { tier: newTier }, {
             headers: { Authorization: `Bearer ${token}` }
         });
         setSubscribers(subscribers.map(s => s.id === userId ? { ...s, tier: newTier } : s));
@@ -45,7 +45,7 @@ const AdminDashboard = () => {
   const handleCancel = async (userId: string) => {
     if (!window.confirm('Are you sure you want to cancel this subscription?')) return;
     try {
-        await axios.delete(`http://localhost:3001/api/admin/subscribers/${userId}`, {
+        await axios.delete(`/api/admin/subscribers/${userId}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         setSubscribers(subscribers.filter(s => s.id !== userId));

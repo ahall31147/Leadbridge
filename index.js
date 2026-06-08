@@ -5,45 +5,39 @@ const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 const port = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 
 app.use(cors());
-
-// Webhook needs raw body, so define it before express.json()
-app.post('/api/webhook', express.raw({ type: 'application/json' }), (req, res) => {
-    const sig = req.headers['stripe-signature'];
-    let event;
-
-    try {
-        event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-    } catch (err) {
-        console.error(`Webhook Error: ${err.message}`);
-        return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-
-    // Handle the event
-    switch (event.type) {
-        case 'checkout.session.completed':
-            const session = event.data.object;
-            updateUserSubscription(session);
-            break;
-        case 'customer.subscription.updated':
-        case 'customer.subscription.deleted':
-            const subscription = event.data.object;
-            handleSubscriptionChange(subscription);
-            break;
-        default:
-            console.log(`Unhandled event type ${event.type}`);
-    }
-
-    res.json({ received: true });
-});
-
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Seed data if files don't exist
+const seedData = () => {
+    const dataDir = path.join(__dirname, 'data');
+    if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir);
+    }
+
+    const leadsPath = path.join(dataDir, 'leads.json');
+    const usersPath = path.join(dataDir, 'users.json');
+
+    if (!fs.existsSync(leadsPath)) {
+        console.log('Seeding initial leads data...');
+        const initialLeads = { leads: [] };
+        fs.writeFileSync(leadsPath, JSON.stringify(initialLeads, null, 2));
+    }
+
+    if (!fs.existsSync(usersPath)) {
+        console.log('Seeding initial users data...');
+        const initialUsers = { users: [] };
+        fs.writeFileSync(usersPath, JSON.stringify(initialUsers, null, 2));
+    }
+};
+
+seedData();
 
 const LEADS_FILE = path.join(__dirname, 'data/leads.json');
 const USERS_FILE = path.join(__dirname, 'data/users.json');
@@ -51,45 +45,6 @@ const USERS_FILE = path.join(__dirname, 'data/users.json');
 // Helper to read data
 const readData = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 const writeData = (file, data) => fs.writeFileSync(file, JSON.stringify(data, null, 2));
-
-// Helper to update user subscription from session
-const updateUserSubscription = (session) => {
-    const data = readData(USERS_FILE);
-    const user = data.users.find(u => u.email === session.customer_details.email);
-    if (user) {
-        // Map price ID back to tier
-        if (session.line_items && session.line_items.data[0]) {
-             const priceId = session.line_items.data[0].price.id;
-             if (priceId === process.env.STRIPE_PRICE_STARTER) user.tier = 'Starter';
-             else if (priceId === process.env.STRIPE_PRICE_PRO) user.tier = 'Pro';
-             else if (priceId === process.env.STRIPE_PRICE_ENTERPRISE) user.tier = 'Enterprise';
-        } else {
-            // If line_items not available in session, we might need to fetch them or assume based on metadata
-            const tier = session.metadata.tier;
-            if (tier) user.tier = tier;
-        }
-        user.stripeCustomerId = session.customer;
-        writeData(USERS_FILE, data);
-        console.log(`Updated user ${user.email} to tier ${user.tier}`);
-    }
-};
-
-const handleSubscriptionChange = async (subscription) => {
-    const data = readData(USERS_FILE);
-    const user = data.users.find(u => u.stripeCustomerId === subscription.customer);
-    if (user) {
-        if (subscription.status === 'active') {
-            const priceId = subscription.items.data[0].price.id;
-            if (priceId === process.env.STRIPE_PRICE_STARTER) user.tier = 'Starter';
-            else if (priceId === process.env.STRIPE_PRICE_PRO) user.tier = 'Pro';
-            else if (priceId === process.env.STRIPE_PRICE_ENTERPRISE) user.tier = 'Enterprise';
-        } else {
-            user.tier = 'None';
-        }
-        writeData(USERS_FILE, data);
-        console.log(`Subscription changed for ${user.email}: ${subscription.status}`);
-    }
-};
 
 // Auth Middleware
 const authenticateToken = (req, res, next) => {
@@ -112,45 +67,6 @@ const isAdmin = (req, res, next) => {
 
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
-});
-
-app.post('/api/create-checkout-session', authenticateToken, async (req, res) => {
-    const { tier } = req.body;
-    let priceId;
-
-    if (tier === 'Starter') priceId = process.env.STRIPE_PRICE_STARTER;
-    else if (tier === 'Pro') priceId = process.env.STRIPE_PRICE_PRO;
-    else if (tier === 'Enterprise') priceId = process.env.STRIPE_PRICE_ENTERPRISE;
-
-    if (!priceId) return res.status(400).json({ error: 'Invalid tier' });
-
-    try {
-        const session = await stripe.checkout.sessions.create({
-            payment_method_types: ['card'],
-            line_items: [{ price: priceId, quantity: 1 }],
-            mode: 'subscription',
-            success_url: `${process.env.FRONTEND_URL}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${process.env.FRONTEND_URL}/pricing`,
-            customer_email: req.user.email,
-            metadata: { tier }
-        });
-
-        res.json({ id: session.id, url: session.url });
-    } catch (error) {
-        console.error('Stripe error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.get('/api/subscription-status', authenticateToken, (req, res) => {
-    const data = readData(USERS_FILE);
-    const user = data.users.find(u => u.id === req.user.id);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
-    res.json({
-        tier: user.tier || 'None',
-        status: user.stripeCustomerId ? 'active' : 'inactive'
-    });
 });
 
 // Login
@@ -275,6 +191,10 @@ app.delete('/api/admin/subscribers/:id', authenticateToken, isAdmin, (req, res) 
     data.users.splice(index, 1);
     writeData(USERS_FILE, data);
     res.status(204).send();
+});
+
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(port, '0.0.0.0', () => {

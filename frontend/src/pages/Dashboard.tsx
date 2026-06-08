@@ -31,7 +31,6 @@ const iconMap: Record<string, any> = {
 const Dashboard = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [stats, setStats] = useState<Stat[]>([]);
-  const [subscription, setSubscription] = useState<{tier: string, status: string} | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
   const { token } = useAuth();
@@ -42,14 +41,12 @@ const Dashboard = () => {
         const config = {
           headers: { Authorization: `Bearer ${token}` }
         };
-        const [leadsRes, statsRes, subRes] = await Promise.all([
-          axios.get(`http://localhost:3001/api/leads${statusFilter ? `?status=${statusFilter}` : ''}`, config),
-          axios.get('http://localhost:3001/api/leads/stats', config),
-          axios.get('http://localhost:3001/api/subscription-status', config)
+        const [leadsRes, statsRes] = await Promise.all([
+          axios.get(`/api/leads${statusFilter ? `?status=${statusFilter}` : ''}`, config),
+          axios.get('/api/leads/stats', config)
         ]);
         
         setLeads(leadsRes.data);
-        setSubscription(subRes.data);
         
         const mappedStats = statsRes.data.map((s: any) => ({
           ...s,
@@ -68,7 +65,7 @@ const Dashboard = () => {
 
   const handleStatusChange = async (leadId: string, newStatus: string) => {
     try {
-        await axios.patch(`http://localhost:3001/api/leads/${leadId}/status`, { status: newStatus }, {
+        await axios.patch(`/api/leads/${leadId}/status`, { status: newStatus }, {
             headers: { Authorization: `Bearer ${token}` }
         });
         setLeads(leads.map(l => l.id === leadId ? { ...l, status: newStatus } : l));
@@ -83,18 +80,7 @@ const Dashboard = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Subscriber Dashboard</h1>
-        {subscription && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Plan:</span>
-            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full">{subscription.tier}</span>
-            <span className={`px-2 py-1 text-xs font-bold rounded-full ${subscription.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-              {subscription.status}
-            </span>
-          </div>
-        )}
-      </div>
+      <h1 className="text-2xl font-bold text-gray-900 mb-8">Subscriber Dashboard</h1>
       
       {/* Stats Grid */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-10">

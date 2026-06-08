@@ -14,7 +14,7 @@ const SignUpPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await axios.post('http://localhost:3001/api/signup', { email, password, name });
+      const response = await axios.post('/api/signup', { email, password, name });
       login(response.data.token, response.data.user);
       navigate('/dashboard');
     } catch (err: any) {
