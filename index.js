@@ -193,7 +193,8 @@ app.delete('/api/admin/subscribers/:id', authenticateToken, isAdmin, (req, res) 
     res.status(204).send();
 });
 
-app.get('/{*path}', (req, res) => {
+// Catch-all: serve frontend for non-API routes
+app.use((req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
