@@ -193,7 +193,7 @@ app.delete('/api/admin/subscribers/:id', authenticateToken, isAdmin, (req, res) 
     res.status(204).send();
 });
 
-app.get('*', (req, res) => {
+app.get('/{*path}', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
