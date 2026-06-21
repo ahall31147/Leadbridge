@@ -17,8 +17,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 const stripe = process.env.STRIPE_SECRET_KEY ? require('stripe')(process.env.STRIPE_SECRET_KEY) : null;
 
 const DATA_DIR = path.join(__dirname, 'data');
-const LEADS_FILE = path.join(DATA_DIR, 'data/leads.json');
-const USERS_FILE = path.join(DATA_DIR, 'data/users.json');
+const LEADS_FILE = path.join(DATA_DIR, 'leads.json');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
 // Seed data
 const seed = () => {
